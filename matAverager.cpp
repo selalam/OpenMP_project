@@ -1,10 +1,13 @@
 #include <thread>
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <omp.h>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 using namespace std;
 // a class to get more accurate time
@@ -187,67 +190,78 @@ int main( int argc, char* argv[] )
 //		#pragma omp critical // This forces single thread execution at a time 'serialize'
 		// #pragma omp parallel for reduction(+:count) can only do one variable, but struct allows us to circumvent this
 	
-	int maxi, maxj; // Use limits.h for finding the smallest integer if the input data is unknown
-	double max;
+	double max = -1.0;
+	vector<pair<int, int> > maxLocations;
 
-#pragma omp parallel for // A multithreaded for loop
-	for (int i = 0; i < rows; i++) {
-		for (int j = 0; j < cols; j++) {
-			int sum = 0;
-			double divisor = 1.0;
-			if (i == 0 && j == 0) {
-				sum = data[i][j] + data[i][j+1] +
-					data[i+1][j] + data[i+1][j+1];
-					divisor = 4.0;
-			} else if (i == 0 && j == (cols-1)) {
-				sum = data[i][j-1] + data[i][j] +
-					data[i+1][j-1] + data[i+1][j];
-					divisor = 4.0;
-			} else if (i == 0) {
-				sum = data[i][j-1] + data[i][j] + data[i][j+1] +
-					data[i+1][j-1] + data[i+1][j] + data[i+1][j+1];
-					divisor = 6.0;
-			} else if (i == (rows-1) && j == 0) {
-				sum = data[i-1][j] + data[i-1][j+1] +
-					data[i][j] + data[i][j+1];
-					divisor = 4.0;
-			} else if (i == (rows-1) && j == (cols-1)) {
-				sum = data[i-1][j-1] + data[i-1][j] +
-					data[i][j-1] + data[i][j];
-					divisor = 4.0;
-			} else if (i == (rows-1)) {
-				sum = data[i-1][j-1] + data[i-1][j] + data[i-1][j+1] +
-						data[i][j-1] + data[i][j] + data[i][j+1];
-					divisor = 6.0;
-			} else if (j == 0) {
-				sum = data[i-1][j] + data[i-1][j+1] +
-						data[i][j] + data[i][j+1] +
+#pragma omp parallel
+	{
+		double localMax = -1.0;
+		vector<pair<int, int> > localMaxLocations;
+
+#pragma omp for
+		for (int i = 0; i < rows; i++) {
+			for (int j = 0; j < cols; j++) {
+				int sum = 0;
+				double divisor = 1.0;
+				if (i == 0 && j == 0) {
+					sum = data[i][j] + data[i][j+1] +
 						data[i+1][j] + data[i+1][j+1];
-					divisor = 6.0;
-			} else if (j == (cols-1)) {
-				sum = data[i-1][j-1] + data[i-1][j] +
-						data[i][j-1] + data[i][j] +
+						divisor = 4.0;
+				} else if (i == 0 && j == (cols-1)) {
+					sum = data[i][j-1] + data[i][j] +
 						data[i+1][j-1] + data[i+1][j];
-					divisor = 6.0;
-			} else {
-				sum = data[i-1][j-1] + data[i-1][j] + data[i-1][j+1] +
-					data[i][j-1] + data[i][j] + data[i][j+1] +
-					data[i+1][j-1] + data[i+1][j] + data[i+1][j+1];
-					divisor = 9.0;
-			}
-			double avg = sum / divisor; // This was avg = sum / 9, which was fully integer division and we would lose decimal precision
+						divisor = 4.0;
+				} else if (i == 0) {
+					sum = data[i][j-1] + data[i][j] + data[i][j+1] +
+						data[i+1][j-1] + data[i+1][j] + data[i+1][j+1];
+						divisor = 6.0;
+				} else if (i == (rows-1) && j == 0) {
+					sum = data[i-1][j] + data[i-1][j+1] +
+						data[i][j] + data[i][j+1];
+						divisor = 4.0;
+				} else if (i == (rows-1) && j == (cols-1)) {
+					sum = data[i-1][j-1] + data[i-1][j] +
+						data[i][j-1] + data[i][j];
+						divisor = 4.0;
+				} else if (i == (rows-1)) {
+					sum = data[i-1][j-1] + data[i-1][j] + data[i-1][j+1] +
+							data[i][j-1] + data[i][j] + data[i][j+1];
+						divisor = 6.0;
+				} else if (j == 0) {
+					sum = data[i-1][j] + data[i-1][j+1] +
+							data[i][j] + data[i][j+1] +
+							data[i+1][j] + data[i+1][j+1];
+						divisor = 6.0;
+				} else if (j == (cols-1)) {
+					sum = data[i-1][j-1] + data[i-1][j] +
+							data[i][j-1] + data[i][j] +
+							data[i+1][j-1] + data[i+1][j];
+						divisor = 6.0;
+				} else {
+					sum = data[i-1][j-1] + data[i-1][j] + data[i-1][j+1] +
+						data[i][j-1] + data[i][j] + data[i][j+1] +
+						data[i+1][j-1] + data[i+1][j] + data[i+1][j+1];
+						divisor = 9.0;
+				}
+				double avg = sum / divisor; // This was avg = sum / 9, which was fully integer division and we would lose decimal precision
 
-			if (avg > max) 
-			{
-
-#pragma omp critical
-			{
-				if (avg > max) {
-					max = avg;
-					maxi = i;
-					maxj = j;
+				if (avg > localMax) {
+					localMax = avg;
+					localMaxLocations.clear();
+					localMaxLocations.push_back(make_pair(i, j));
+				} else if (avg == localMax) {
+					localMaxLocations.push_back(make_pair(i, j));
 				}
 			}
+		}
+
+#pragma omp critical
+		{
+			if (localMax > max) {
+				max = localMax;
+				maxLocations = localMaxLocations;
+			} else if (localMax == max) {
+				maxLocations.insert(maxLocations.end(), localMaxLocations.begin(), localMaxLocations.end());
 			}
 		}
 	}
@@ -258,6 +272,10 @@ int main( int argc, char* argv[] )
 	S1.stop();
 	
 	// print out the max value here
-	cerr << "largest average: " << max << "\nfound at : (" << maxi << ", " << maxj << ")\n";
+	sort(maxLocations.begin(), maxLocations.end());
+	cerr << "largest average: " << max << endl;
+	for (unsigned int i = 0; i < maxLocations.size(); i++) {
+		cerr << "found at : (" << maxLocations[i].first << ", " << maxLocations[i].second << ")" << endl;
+	}
 	cerr << "elapsed time: " << S1.getTime( ) << endl;
 }
