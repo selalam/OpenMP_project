@@ -274,8 +274,10 @@ int main( int argc, char* argv[] )
 	// print out the max value here
 	sort(maxLocations.begin(), maxLocations.end());
 	cerr << "largest average: " << max << endl;
+	cerr << "found at cells: ";
 	for (unsigned int i = 0; i < maxLocations.size(); i++) {
-		cerr << "found at : (" << maxLocations[i].first << ", " << maxLocations[i].second << ")" << endl;
+		cerr << "(" << maxLocations[i].first << ", " << maxLocations[i].second << ")\t";
 	}
+	cerr << endl;
 	cerr << "elapsed time: " << S1.getTime( ) << endl;
 }
